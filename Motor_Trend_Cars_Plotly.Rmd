@@ -1,0 +1,26 @@
+---
+title: "Motor Trend Cars Plotly"
+author: "Stephanie Stallworth"
+date: "April 13, 2017"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+##mtcars 
+```{r, message = FALSE, warning=FALSE}
+library(plotly);library("datasets");data(mtcars);library(dplyr)
+p <-ggplot(mtcars, aes(x = mpg, y = wt, col = factor(cyl))) + geom_point() + 
+        labs(title = "Weight vs Mpg", x = "Mpg",y= "Weight") +theme(legend.title = element_blank())
+ggplotly(p) %>%  add_annotations( text="Cylinder", xref="paper", yref="paper",
+                  x=1.02, xanchor="left",
+                  y=0.8, yanchor="bottom",    # Same y as legend below
+                  legendtitle=TRUE, showarrow=FALSE ) %>%
+  layout( legend=list(y=0.8, yanchor="top" ) )
+```
+
+***
+
+###Thank you!

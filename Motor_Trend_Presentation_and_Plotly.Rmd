@@ -1,0 +1,67 @@
+---
+title: "Motor Trend Cars Presentation & Plotly"
+author: "Stephanie Stallworth"
+date: "April 13, 2017"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+This is an R Markdown presentation created using **Knit**, which allows the capability to include content as well as output of embedded R code chunks within a document.  
+
+In this presentation, I will also demonstrate how a `ggplot` object can be turned into an interactive web graphic using the `plotly` package.  
+
+##Plotly Code
+```{r, eval=FALSE, echo = TRUE}
+
+#Load packages
+library(plotly);library(dplyr);library("datasets")
+
+#Read dataset
+data(mtcars)
+
+#Create plot
+p <-ggplot(mtcars, aes(x = mpg, y = wt, col = factor(cyl))) + 
+        geom_point() + 
+        labs(title = "Weight vs Mpg", x = "Mpg",y= "Weight") +
+        theme(legend.title = element_blank())
+
+#Pass ggplot object to plotly function and format
+ggplotly(p) %>%  add_annotations( text="Cylinder", 
+                  xref="paper", yref="paper",
+                  x=1.02, xanchor="left",
+                  y=0.8, yanchor="bottom",   
+                  legendtitle=TRUE, showarrow=FALSE ) %>%
+                  layout( legend=list(y=0.8, yanchor="top" ) )
+```
+
+
+
+
+##mtcars Interactive Plotly Scatter
+```{r message = FALSE, warning=FALSE}
+library(plotly);library("datasets");data(mtcars);library(dplyr)
+p <-ggplot(mtcars, aes(x = mpg, y = wt, col = factor(cyl))) + geom_point() + 
+        labs(title = "Weight vs Mpg", x = "Mpg",y= "Weight") +theme(legend.title = element_blank())
+ggplotly(p) %>%  add_annotations( text="Cylinder", xref="paper", yref="paper",
+                  x=1.02, xanchor="left",
+                  y=0.8, yanchor="bottom",    # Same y as legend below
+                  legendtitle=TRUE, showarrow=FALSE ) %>%
+  layout( legend=list(y=0.8, yanchor="top" ) )
+```
+
+***
+
+
+
+
+
+
+
+
+###Thank You!
+

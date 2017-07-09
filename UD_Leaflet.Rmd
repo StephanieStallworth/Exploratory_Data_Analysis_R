@@ -1,0 +1,39 @@
+---
+title: "University of Dayton Leaflet Map"
+author: "Stephanie Stallworth"
+date: "April 12, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## My First Map
+For this assignment, I created a map of my alma mater The University of Dayton (Go Flyers!)
+
+First steps was to load necessary packages
+```{r, warning = FALSE, message =FALSE }
+library(leaflet)
+library(dplyr)
+
+```
+
+Next, a map object was created
+
+```{r, eval = FALSE}
+
+myMap<-leaflet() %>% 
+        addTiles()
+myMap
+```
+
+University of Dayton website was then marked on the map with a link to get additional information
+```{r}
+UD<- c("<a href = 'https://udayton.edu'>University of Dayton</a>") 
+leaflet() %>% 
+addTiles() %>% 
+addMarkers(lat = 39.740415, lng= -84.1792132, popup = UD)
+```
+
+

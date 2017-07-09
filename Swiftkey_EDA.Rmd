@@ -1,0 +1,223 @@
+---
+title: "Natural Language Processing Model"
+author: "Stephanie Stallworth"
+date: "May 14, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment="",message= FALSE, warning=FALSE, cache = TRUE)
+```
+
+###**Executive Summary**
+
+The objective of this exercise is to build a predictive model and evaluate its efficiency in predicting answers to the following quiz:
+
+-"The guy in front of me just bought a pound of bacon, a bouquet, and a case of  
+-"You're the reason why I smile everyday. Can you follow me please? It would mean the"  
+-"Hey sunshine, can you follow me and make me the"  
+-"Very early observations on the Bills game: Offense still struggling but the"  
+-"Go on a romantic date at the"  
+-"Well I'm pretty sure my granny has some old bagpipes in her garage I'll dust them off and be on my"  
+-"Ohhhhh #PointBreak is on tomorrow. Love that film and haven't seen it in quite some"  
+-"After the ice bucket challenge Louis will push his long wet hair out of his eyes with his little"  
+-"Be grateful for the good times and keep the faith during the"  
+-"If this isn't the cutest thing you've ever seen, then you must be"  
+
+###**PreProcessing**
+```{r}
+library(tm);library(dplyr);library(ggplot2)
+library(pryr);library(stringr);library(RWeka)
+
+# Quiz List 1
+qb1<-"The guy in front of me just bought a pound of bacon, a bouquet, and a case of"
+qb2<-"You're the reason why I smile everyday. Can you follow me please? It would mean the"
+qb3<-"Hey sunshine, can you follow me and make me the"
+qb4<-"Very early observations on the Bills game: Offense still struggling but the"
+qb5<-"Go on a romantic date at the"
+qb6<-"Well I'm pretty sure my granny has some old bagpipes in her garage I'll dust them off and be on my"
+qb7<-"Ohhhhh #PointBreak is on tomorrow. Love that film and haven't seen it in quite some"
+qb8<-"After the ice bucket challenge Louis will push his long wet hair out of his eyes with his little"
+qb9<-"Be grateful for the good times and keep the faith during the"
+qb10<-"If this isn't the cutest thing you've ever seen, then you must be"
+
+# Quiz List 2
+qc1<-"When you breathe, I want to be the air for you. I'll be there for you, I'd live and I'd"
+qc2<-"Guy at my table's wife got up to go to the bathroom and I asked about dessert and he started telling me about his"
+qc3<-"I'd give anything to see arctic monkeys this"
+qc4<-"Talking to your mom has the same effect as a hug and helps reduce your"
+qc5<-"When you were in Holland you were like 1 inch away from me but you hadn't time to take a"
+qc6<-"I'd just like all of these questions answered, a presentation of evidence, and a jury to settle the"
+qc7<-"I can't deal with unsymetrical things. I can't even hold an uneven number of bags of groceries in each"
+qc8<-"Every inch of you is perfect from the bottom to the"
+qc9<-"I'm thankful my childhood was filled with imagination and bruises from playing"
+qc10<-"I like how the same people are in almost all of Adam Sandler's"
+
+qblist<-list(qb1,qb2,qb3,qb4,qb5,qb6,qb7,qb8,qb9,qb10)
+qclist<-list(qc1,qc2,qc3,qc4,qc5,qc6,qc7,qc8,qc9,qc10)
+
+# Load data
+df1 = readLines("./final/en_US/en_US.twitter.txt", encoding = "UTF-8")
+df.blogs = readLines("./final/en_US/en_US.blogs.txt", encoding = "UTF-8")
+df.news = readLines("./final/en_US/en_US.news.txt", encoding = "UTF-8")
+```
+
+###**Prediction**  
+
+To make predictions, the last n-grams are first extracted from the sentence.
+```{r}
+ngram.extract = function(str, n) {
+        sep.chr = tail(strsplit(str, split = " ")[[1]], n)
+        return(paste(sep.chr, sep = "", collapse = " "))
+}
+```
+
+This predictive model is then applied to suggest the next word in sample vectors "a case of".
+```{r}
+#x = grep("a case of", s_df1, value = TRUE)
+#x
+match = regmatches(df1, regexpr("a case of (.*?) ", df1))
+match
+
+matchlist = gsub("a case of | $","", match)
+matchnames = names(table(matchlist))
+matchfreq = table(matchlist)
+caseofmatch = data.frame(item = matchnames, freq = matchfreq)
+caseofmatch = data.frame(item = caseofmatch$item, freq = caseofmatch$freq.Freq)
+caseofmatch = caseofmatch[order(-caseofmatch$freq),]
+```
+Based on the sample, the most frequent word after "a case of" is "the". The second most frequent word is "beer". 
+
+###**Quiz Predictions**  
+
+All the 3-grams in each sentence of the quiz are extracted.
+
+```{r}
+qblist.3gram = sapply(qblist, ngram.extract, 3)
+```
+
+Next, the last 2-grams of each sentence are extracted.
+
+```{r}
+qblist.2gram = sapply(qblist, ngram.extract, 2)
+qclist.3gram = sapply(qclist, ngram.extract, 3)
+```
+
+A function is then created to extract the word following these 3-gram terms in the source file and make a data frame listing the most frequent word.
+```{r}
+
+word3.predict = function(datasource, term) {
+        match = NULL
+        matchlist = NULL
+        match = regmatches(datasource, regexpr(paste(term, "(.*?) "), datasource))
+        matchlist = gsub(paste(term, "| $"),"", match)
+        return(matchlist)
+}
+```
+
+```{r}
+match.list = sapply(qblist.3gram, word3.predict, datasource = df1)
+cgramText = vector()
+cgramCount = vector()
+nw1Text = vector()
+nw1Count = vector()
+nw2Text = vector()
+nw2Count = vector()
+nw3Text = vector()
+nw3Count = vector()
+for (i in 1:length(match.list)) {
+        temp.vec = match.list[i]
+        cgramText[i] = qblist.3gram[i]
+        cgramCount[i] = sum(table(match.list[i]))
+        if (is.na(table(match.list[i])[1])) {
+                nw1Text[i] = NA
+        }
+        else {
+                nw1Text[i] = names(sort(table(match.list[i]), decreasing = TRUE)[1])
+        }
+        nw1Count [i] = as.numeric(sort(table(match.list[i]), decreasing = TRUE)[1])
+        if (is.na(table(match.list[i])[2])) {
+                nw2Text[i] = NA
+        }
+        else {
+                nw2Text[i] = names(sort(table(match.list[i]), decreasing = TRUE)[2])
+        }
+        nw2Count [i] = as.numeric(sort(table(match.list[i]), decreasing = TRUE)[2])
+        if (is.na(table(match.list[i])[3])) {
+                nw2Text[i] = NA
+        }
+        else {
+                nw3Text[i] = names(sort(table(match.list[i]), decreasing = TRUE)[3])
+        }
+        nw3Count [i] = as.numeric(sort(table(match.list[i]), decreasing = TRUE)[3])
+}
+```
+
+The result of the prediction is as follows:
+```{r}
+pred.rts = data.frame(cgramText, cgramCount, nw1Text, nw1Count, nw2Text, nw2Count, nw3Text, nw3Count)
+pred.rts
+```
+
+After this initial test, the code above is packaged as a function to predict any list in any file.
+```{r}
+pred.word.fun = function (data.input, gramlist) {
+        match.list = sapply(gramlist, word3.predict, datasource = data.input)
+        cgramText = vector()
+        cgramCount = vector()
+        nw1Text = vector()
+        nw1Count = vector()
+        nw2Text = vector()
+        nw2Count = vector()
+        nw3Text = vector()
+        nw3Count = vector()
+        for (i in 1:length(match.list)) {
+              temp.vec = match.list[i]
+              cgramText[i] = gramlist[i]
+             cgramCount[i] = sum(table(match.list[i]))
+             if (is.na(table(match.list[i])[1])) {
+                     nw1Text[i] = NA
+             }
+             else {
+                    nw1Text[i] = names(sort(table(match.list[i]), decreasing = TRUE)[1])
+            }
+            nw1Count [i] = as.numeric(sort(table(match.list[i]), decreasing = TRUE)[1])
+            if (is.na(table(match.list[i])[2])) {
+                   nw2Text[i] = NA
+            }
+            else {
+                    nw2Text[i] = names(sort(table(match.list[i]), decreasing = TRUE)[2])
+                }
+                nw2Count [i] = as.numeric(sort(table(match.list[i]), decreasing = TRUE)[2])
+                if (is.na(table(match.list[i])[3])) {
+                        nw2Text[i] = NA
+                }
+                else {
+                        nw3Text[i] = names(sort(table(match.list[i]), decreasing = TRUE)[3])
+                }
+                nw3Count [i] = as.numeric(sort(table(match.list[i]), decreasing = TRUE)[3])
+        }
+        pred.rts = data.frame(cgramText, cgramCount, nw1Text, nw1Count, nw2Text, nw2Count, nw3Text, nw3Count)
+        return(pred.rts)
+}
+```
+
+The predictions can now be analyzed in other forms including blogs and news using the function.
+```{r}
+news.pred.rts = pred.word.fun(gramlist = qblist.3gram, data.input = df.news )
+blog.pred.rts = pred.word.fun(gramlist = qblist.3gram, data.input = df.blogs )
+```
+
+Two dataframes are created with the match information for the quiz questions with different sources.
+```{r}
+pred.rts
+```
+
+```{r}
+news.pred.rts
+```
+
+```{r}
+blog.pred.rts
+```
+

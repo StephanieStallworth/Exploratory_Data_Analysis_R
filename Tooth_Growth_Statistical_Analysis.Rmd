@@ -1,0 +1,95 @@
+---
+title: "Tooth Growth Inferential Analysis"
+author: "Stephanie Stallworth"
+date: "March 27, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### **Executive Summary**
+
+This inferential analysis explores the `ToothGrowth` data set using the following steps:  
+
+1. Basic exploratory data analysis
+2. Summarize the data
+3. Examine the effect of supp and dose on tooth growth using confidence intervals and hypothesis tests  
+4. State conclusions and assumptions
+
+###**Step 1: Exploratory data analysis**
+
+```{r, message= FALSE, warning = FALSE, comment=""}
+library(ggplot2)
+
+data(ToothGrowth)
+
+# Examine data set stucture
+str(ToothGrowth)
+
+# Determine number of observations
+dim(ToothGrowth)
+
+# Coerce dose variable to doses
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+
+# Examine data structure after conversion
+str(ToothGrowth)
+
+```
+
+
+###**Step 2: Summarize the data**
+```{r,comment = ""}
+# Summary statistics for all variables
+summary(ToothGrowth)
+
+# Table of dose levels and delivery methods
+table(ToothGrowth$dose, ToothGrowth$supp)
+
+# Exploratory plots
+ggplot(ToothGrowth,aes(x = dose, y = len))+ geom_boxplot(aes(fill = dose))
+ggplot(ToothGrowth,aes(x = supp, y = len)) + geom_boxplot(aes(fill = supp))
+```
+
+###**Step 3: Examine the effect of supp and dose on tooth growth using confidence intervals and hypothesis tests **
+
+A T-test was performed to check for group differences explained by supplement type.
+```{r,comment=""}
+t.test(len ~ supp, data = ToothGrowth)
+```
+As shown above, the p value is 0.06 and the confidence interval contains 0. Thus, we can **not reject** the null hypothesis that different supplement types have no effect on tooth length.  
+
+T-tests were then performed to determine if group differences are due to dose levels.
+
+```{r,comment=""}
+
+# Subgroup does by their level pairs
+ToothGrowth_Dose_0.5_1.0<-subset(ToothGrowth, dose %in% c(0.5, 1.0))
+ToothGrowth_Dose_0.5_2.0<-subset(ToothGrowth, dose %in% c(0.5, 2.0))
+ToothGrowth_Dose_1.0_2.0<-subset(ToothGrowth, dose %in% c(1.0, 2.0))
+
+# Group Differences due to 0.5 to 1.0 dose levels
+t.test(len ~ dose, data = ToothGrowth_Dose_0.5_1.0)
+
+# Group Differences due to 0.5 to 2.0 dose levels
+t.test(len ~ dose, data = ToothGrowth_Dose_0.5_2.0)
+
+# Group Differences due to 1.0 to 2.0 dose levels
+t.test(len ~ dose, data = ToothGrowth_Dose_1.0_2.0)
+```
+For all three tests, the p value is less than 0.05 and the confidence intervals does not contain zero.  Thus, we can **reject** the null hypothesis and conclude that increasing dose levels ***does*** in fact lead to an increase in tooth length.  
+
+###**Step 4: State conclusions and assumptions**
+ 
+Based on my analysis above my conclusions are as follows:  
+1. Supplement type does not effect tooth growth  
+2. Increasing dose levels does lead to increased tooth growth.  
+
+This conclusion is based on the following assumptions:  
+- The experiment was conducted using random assignment to control for confounding factors   
+- The sample population is representative of the entire population  
+- Variance for the t-tests are different for the two groups being compared  
