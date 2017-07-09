@@ -1,0 +1,197 @@
+---
+title: "SwiftKey Capstone Exploratory Analysis"
+author: "Stephanie Stallworth"
+date: "May 7, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE, comment="",warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###**Executive Summary**
+This exploratory analysis is the first step in the development of predictive text model that will predict words based on user input.  
+The model will be trained using a corpus (a collection of English text) that is compiled from 3 sources - news, blogs, and tweets. In the following report, I load and clean the data as well as use NLM (Natural Language Processing) techniques to perform the analysis and build the predictive model.  
+
+###**Processing the Data**
+
+**Getting the Data**
+The zip file containing the raw corpus data was downloaded from:   
+https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip.
+
+
+```{r}
+# Download and unzip file
+if (!file.exists("Coursera-SwiftKey.zip")) {
+  download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip")
+  unzip("Coursera-SwiftKey.zip")
+}
+```
+The dataset consists of text from 3 different sources: News, Blogs, and Twitter feeds stored locally as:
+
+Blog: ./final/en_US.blogs.txt
+
+News: ./final/en_US.news.txt
+
+Twitter: ./final/en_US.twitter.txt
+```{r}
+# Read the blogs and Twitter data into R
+blogs <- readLines("final/en_US/en_US.blogs.txt", encoding = "UTF-8", skipNul = TRUE)
+news <- readLines("final/en_US/en_US.news.txt", encoding = "UTF-8", skipNul = TRUE)
+twitter <- readLines("final/en_US/en_US.twitter.txt", encoding = "UTF-8", skipNul = TRUE)
+```
+I then created a basic summary of each file containing the following: Megabytes, number of lines, number of words, and average length of entry.     
+
+```{r}
+library(stringi)
+
+# Get file sizes
+blogs.size <- file.info("final/en_US/en_US.blogs.txt")$size / 1024 ^ 2
+news.size <- file.info("final/en_US/en_US.news.txt")$size / 1024 ^ 2
+twitter.size <- file.info("final/en_US/en_US.twitter.txt")$size / 1024 ^ 2
+
+# Get words in files
+blogs.words <- stri_count_words(blogs)
+news.words <- stri_count_words(news)
+twitter.words <- stri_count_words(twitter)
+
+# Summary of the data sets
+data.frame(source = c("blogs", "news", "twitter"),
+           file.size.MB = c(blogs.size, news.size, twitter.size),
+           num.lines = c(length(blogs), length(news), length(twitter)),
+           num.words = c(sum(blogs.words), sum(news.words), sum(twitter.words)),
+           mean.num.words = c(mean(blogs.words), mean(news.words), mean(twitter.words)))
+```
+**Cleaning The Data**
+Before performing the exploratory analysis, the data must be scrubbed of all URLs, special characters, puntuations, numbers, trailing spaces, and stop words.
+
+As the summary table shows, the data is quite large. Thus, a sample of 1% is randomly chosen for cleaning and exploratory analysis.
+```{r}
+# Load library
+library(tm);library(stringi)
+
+#blogs   <- iconv(blogs,   "UTF-8", "ASCII", "byte")
+news    <- iconv(news,    "UTF-8", "ASCII", "byte")
+twitter <- iconv(twitter, "UTF-8", "ASCII", "byte")
+
+set.seed(1332)
+data.sample <- c(sample(blogs,   length(blogs)   * 0.01),
+                 sample(news,    length(news)    * 0.01),
+                 sample(twitter, length(twitter) * 0.01))
+#data.sample <- sample(c(blogs, news, twitter), 50000 )
+rm(blogs)
+rm(news)
+rm(twitter)
+
+# Create corpus and clean the data
+corpus <- VCorpus(VectorSource(data.sample))
+corpus <- tm_map(corpus, tolower)
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, stripWhitespace)
+corpus <- tm_map(corpus, PlainTextDocument)
+```
+
+
+###**Exploratory Analysis**
+
+**Word Cloud**
+Once the data is tidyed, a word cloud is created to get a quick loook at the most frequently occuring words in the sampled text, excluding stop words (i.e. the, for, that,etc).
+```{r}
+library(wordcloud)
+tcorpus<-tm_map(words1, removeWords, stopwords("english"))
+wordcloud(tcorpus, max.words=100, random.order=FALSE, colors=brewer.pal(8,"Dark2"))
+```
+**N-Gram Word Frequency**
+
+To explore the data further, the most commonly used unigrams, bigrams, and trigrams are then identified.
+```{r}
+
+options(mc.cores=1)
+
+getFreq <- function(tdm) {
+  freq <- sort(rowSums(as.matrix(tdm)), decreasing = TRUE)
+  return(data.frame(word = names(freq), freq = freq))
+}
+bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+makePlot <- function(data, label) {
+  ggplot(data[1:30,], aes(reorder(word, -freq), freq)) +
+         labs(x = label, y = "Frequency") +
+         theme(axis.text.x = element_text(angle = 60, size = 12, hjust = 1)) +
+         geom_bar(stat = "identity", fill = I("grey50"))
+}
+
+# Get frequencies of most common n-grams in data sample
+freq1 <- getFreq(removeSparseTerms(TermDocumentMatrix(words1), 0.9999))
+freq2 <- getFreq(removeSparseTerms(TermDocumentMatrix(words1, control = list(tokenize = bigram)), 0.9999))
+freq3 <- getFreq(removeSparseTerms(TermDocumentMatrix(words1, control = list(tokenize = trigram)), 0.9999))
+```
+
+```{r}
+
+# Plot of 30 most common unigrams, bigrams, and trigrams
+makePlot(freq1, "30 Most Common Unigrams")
+makePlot(freq2, "30 Most Common Bigrams")
+makePlot(freq3, "30 Most Common Trigrams")
+```
+```{r}
+
+```
+
+```{r}
+
+# Load libraries
+library(RWeka); library(ggplot2)
+
+# List most common unigrams, bigrams, and trigrams
+options(mc.cores=1)
+
+unigram <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
+bigram  <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+
+getFreq <- function(tdm) {
+  freq <- sort(rowSums(as.matrix(tdm)), decreasing = TRUE)
+  return(data.frame(word = names(freq), freq = freq))
+}
+
+makePlot <- function(data, label) {
+  ggplot(data[1:50,], aes(reorder(word, -freq), freq)) +
+         labs(x = label, y = "Frequency") +
+         theme(axis.text.x = element_text(angle = 60, size = 12, hjust = 1)) +
+         geom_bar(stat = "identity", fill = I("grey50"))
+}
+```
+
+**N-Gram Frequency Visualization**
+
+The 50 most common unigrams, bigrams, and trigrams are then visualized in histograms.
+
+```{r}
+# 50 most common unigrams plot
+freq1 <- getFreq(removeSparseTerms(TermDocumentMatrix(corpus, control=list(tokenize = unigram)), 0.99))
+makePlot(freq1, "50 Most Common unigrams")
+```
+```{r}
+# 50 most common bigrams plot
+freq2 <- getFreq(removeSparseTerms(TermDocumentMatrix(corpus, control = list(tokenize = bigram)), 0.999))
+makePlot(freq2, "50 Most Common bigrams")
+```
+
+```{r}
+# 50 most common trigrams plot
+freq2 <- getFreq(removeSparseTerms(TermDocumentMatrix(corpus, control = list(tokenize = trigram)), 0.999))
+makePlot(freq2, "50 Most Common bigrams")
+```
+
+###**Conclusion and Next Steps**
+
+Through this exploratory analysis, I was able to identify the most commonly used words which will be helpful in proceeding to the next steps of the project. 
+
+My plan for the predictive algorithm and app is to use the n-gram model with frequency lookup similar to the exploratory analysis above. It will first use the trigram model to make predictions based on user input. If no matching trigrams can be found, the algorithm will roll back to the bigram model and lastly the unigram model if needed.
+
+
+
+
+
