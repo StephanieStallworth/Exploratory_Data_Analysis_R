@@ -1,0 +1,79 @@
+---
+title: "Central Limit Theorem Exploratory Analysis"
+author: "Stephanie Stallworth"
+date: "March 27, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+###**Executive Summary**
+This analysis investigates the exponential distribution in R and compare it to the Central Limit Theorem. The exponential distribution will be simulated with rexp(n, lambda) where lamda is the rate parameter and the averages of 40 exponentials will be studied.    
+
+Analysis objectives are as follows: 
+
+1. Show the sample mean and compare it to the theoretical mean of the distribution
+2. Show how the variable sample is and compare it to the theoretical variance of the distribution  
+3. Show that the distribution is approximately normal
+
+###**Data Processing**
+```{r, message = FALSE, warning= FALSE}
+
+# Load package
+library(ggplot2)
+
+# Variable set up
+n<-40
+lamda<-0.2
+numsim<-3000
+set.seed(23456)
+data<-matrix(rexp(n*numsim, rate = lamda), numsim)
+data_mean<-apply(data, 1, mean)
+
+# Create histogram of the data_mean variable
+hist(data_mean, col ="darkgreen")
+```
+
+
+
+###**Objective 1: Show the sample mean and compare it to the thoretical mean of the distribution.**
+
+```{r}
+theoreticalMean<-1/lamda
+print(paste("Theoretical mean of the distribution =", theoreticalMean))
+
+print(paste("Actual sample mean = ", round(mean(data_mean),4)))
+```
+
+###**Objective 2: Show how the variable sample is and compare it to the theoretical variance of the distribution.**
+```{r}
+theoreticalVar<-(1/lamda)^2/n
+print(paste("Theoretical Variance of the distribution = ", theoreticalVar))
+
+print(paste("Actual Variance based on simulations =", round(var(data_mean),4)))
+
+theoreticalSd<-1/lamda/sqrt(n)
+print(paste("Theoretical Standard Deviation =", round(theoreticalSd,4)))
+
+print(paste("Actual Standard Deviation based on simulation =", round(sd(data_mean),4)))
+
+```
+
+###**Objective 3: Show that the distribution is approximately normal.**
+```{r}
+
+plotData <- data.frame(data_mean)
+
+```
+Then a plot was created of the results
+```{r, message = FALSE}
+#Create Plot
+m<-ggplot(plotData, aes( x= data_mean))+
+    geom_histogram(aes(y = ..density..), colour = "black",fill = "goldenrod")+
+    geom_density(colour = "darkgreen", size = 2)
+
+print(m)
+
+```
+
+###**Conclusion**
+Due to the Central Limit Theorem, the data appears to be very close to a normal distribution.

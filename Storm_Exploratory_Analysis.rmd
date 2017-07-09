@@ -1,0 +1,168 @@
+---
+title: "Impact of Severe Weather Events in the United States"
+author: "Stephanie Stallworth"
+date: "March 25, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+##**Synopsis**
+
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, so preventing such outcomes to the greatest extent possible is a key concern.
+
+This analysis explores the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database that tracks characteristics of major storms and weather events in the United States between 1950 and November 2011, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+The goal of this analysis is to answer the following questions about the effects of severe weather events:  
+1. Across the United States, which types of events are most harmful with respect to population health?  
+2. Across the United States, which types of events have the greatest economic consequences?
+
+##**Data Processing**  
+
+The data for this assignment can be downloaded from the course web site: [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
+
+Database documentation is also available: 
+National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)  
+National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+
+```{r packages, message=FALSE,warning=FALSE,comment=""}
+# Load packages 
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+
+# Download data set into current working directory and read into R
+fileUrl<-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(fileUrl,"./stormData.csv.bz2")
+stormData <- read.csv(bzfile("stormData.csv.bz2"))
+
+# Subset data for columns pertaining to health and economic consequences of severe weather events
+stormDatasub <- stormData[,c("EVTYPE","FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")]
+```
+
+**Next the effects on population health and economic consequences are investigated.**
+
+###**Population Health**
+Fatalities were summarized by event type in descending order.
+
+```{r,comment=""}
+fatalityData <-stormDatasub %>% 
+    group_by(EVTYPE) %>% 
+    summarize(Fatalities = sum(FATALITIES, na.rm = T)) %>% 
+    arrange(desc(Fatalities))
+```
+
+Then injuries were summarized by event type in descending order.
+
+```{r,comment=""}
+injuryData <-stormDatasub %>% 
+    group_by(EVTYPE) %>% 
+    summarize(Injuries = sum(INJURIES, na.rm = T)) %>% 
+    arrange(desc(Injuries))
+```
+
+###**Economic Consequences*
+First financial damage was calculated.
+```{r,comment=""}
+
+# convert letter values stored in a separate column to usable numbers
+getExp <- function(e) {
+    if (e %in% c("h", "H"))
+        return(2)
+    else if (e %in% c("k", "K"))
+        return(3)
+    else if (e %in% c("m", "M"))
+        return(6)
+    else if (e %in% c("b", "B"))
+        return(9)
+    else if (!is.na(as.numeric(e))) 
+        return(as.numeric(e))
+    else if (e %in% c("", "-", "?", "+"))
+        return(0)
+    else {
+        stop("Invalid value.")
+    }
+}
+```
+
+Next, property and crop damage were calculated and summarized by event type.    
+
+```{r,comment=""}
+propExp <-sapply(stormDatasub$PROPDMGEXP, FUN = getExp)
+stormDatasub$propDamage<-stormDatasub$PROPDMG *(10**propExp)
+cropExp<-sapply(stormDatasub$   CROPDMGEXP, FUN = getExp)
+stormDatasub$cropDamage<-stormDatasub$CROPDMG * (10 **cropExp)
+
+#Financial damage for crops and property are then summarized by event type
+econDamage<-stormDatasub %>% 
+            group_by(EVTYPE) %>% 
+            summarize(propDamage =sum(propDamage), cropDamage = sum(cropDamage)) 
+
+# Omit events not causing financial damage
+econDamage<-econDamage[(econDamage$propDamage>0)|econDamage$cropDamage>0, ]
+
+#Sort damages in decreasing order
+propDmgSorted <- econDamage[order(econDamage$propDamage, decreasing = T), ]
+cropDmgSorted <- econDamage[order(econDamage$cropDamage, decreasing = T), ]
+```
+
+###**Results**
+Top 5 weather events affecting injuries and deaths are as follows:
+
+```{r,comment=""}
+head(injuryData,5)
+head(fatalityData,5)
+```
+
+To visualize the findings above, plots of the Top 10 Events are shown below: 
+
+```{r,comment=""}
+p1<-ggplot(head(injuryData,10), aes(x = reorder(EVTYPE,Injuries), y = Injuries)) +
+               geom_bar(fill = "darkolivegreen",stat = "Identity")+
+               coord_flip()+
+               xlab("EVent Type")+
+               ylab("Total Number of Injuries")+
+               ggtitle("Health Impact of Top 10 Weather Events in the US")
+
+p2<-ggplot(head(fatalityData,10), aes(x = reorder(EVTYPE, Fatalities), y = Fatalities)) +
+    geom_bar(fill = "goldenrod", stat = "Identity")+
+    coord_flip()+
+    xlab("Event Type")+
+    ylab("Total Number of Fatalities")
+    
+grid.arrange(p1, p2,nrow = 2)    
+```
+
+**Conlusion 1: Tornadoes are the most dangerous events.**
+
+###**Economic Consequences**
+
+Top 5 weather events causing financial damage to property and crops are as follows:
+```{r,comment=""}
+head(propDmgSorted[ ,c("EVTYPE","propDamage")],5)
+```
+```{r,comment=""}
+head(cropDmgSorted[ ,c("EVTYPE","cropDamage")],5)
+```
+
+To visualize the findings above, plots of the Top 10 events for property and crop damage are shown below:
+```{r,comment=""}
+p1 <- ggplot(data=head(propDmgSorted,10), aes(x=reorder(EVTYPE, propDamage), y=log10(propDamage), fill=propDamage )) +
+    geom_bar(fill="darkblue", stat="identity") + coord_flip() +
+    xlab("Event type") + ylab("Property damage in dollars (log10)") +
+    ggtitle("Economic impact of weather events in the US - Top 10") +
+    theme(plot.title = element_text(hjust = 0))
+
+p2 <- ggplot(data=head(cropDmgSorted,10), aes(x=reorder(EVTYPE, cropDamage), y=cropDamage, fill=cropDamage)) +
+    geom_bar(fill="goldenrod", stat="identity") + coord_flip() + 
+    xlab("Event type") + ylab("Crop damage in dollars") + 
+    theme(legend.position="none")
+
+grid.arrange(p1, p2, ncol=1, nrow =2)
+```
+**Conclusion 2: Flash floods, thunderstorms, and tornadoes cause the most economic damage of the weather events.**

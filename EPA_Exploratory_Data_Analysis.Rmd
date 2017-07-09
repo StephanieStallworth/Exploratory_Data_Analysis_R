@@ -1,0 +1,239 @@
+---
+title: "EPA Emissions Exploratory Data Analysis"
+author: "Stephanie Stallworth"
+date: "April 14, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE, cache = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##**Executive Summary**
+Exploratory analysis of the EPA's National Emissions Inventory database to identify trends in fine particulate matter solution in the United States between 1999-2008.
+
+##**Data Processing**
+```{r}
+#Download and unzip file
+temp <- tempfile()
+download.file("https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2FNEI_data.zip",temp)
+file <- unzip(temp)
+unlink(temp)
+
+#Read data
+NEI <- readRDS("./summarySCC_PM25.rds")
+SCC <- readRDS("./Source_Classification_Code.rds")
+```
+##**Exploratory Analysis**
+
+**Question 1: Have total emissions from PM2.5 decreased in the United States from 1999 to 2008?**
+```{r}
+#Emissions by year
+aggregatedTotalByYear <- aggregate(Emissions ~ year, NEI, sum)
+
+
+#Create plot using base R
+barplot(height=aggregatedTotalByYear$Emissions, 
+        names.arg=aggregatedTotalByYear$year, 
+        xlab="years", 
+        ylab=expression('total PM'[2.5]*' emission'),
+        main=expression('Total PM'[2.5]*' emissions at various years'))
+```
+
+```{r,comment = FALSE, message = FALSE, comment=""}
+#Save png image of plot
+png('epaplot1.png')
+barplot(height=aggregatedTotalByYear$Emissions, 
+        names.arg=aggregatedTotalByYear$year, 
+        xlab="years", 
+        ylab=expression('total PM'[2.5]*' emission'),
+        main=expression('Total PM'[2.5]*' emissions at various years'))
+dev.off()
+```
+
+
+**Question 2: Have total emissions from PM2.5 decreased in the Baltimore City, Maryland (fips == "24510") from 1999 to 2008? **
+
+```{r}
+#Subset data
+subsetNEI <- NEI[NEI$fips =="24510",  ]
+
+#Sum emissions by year
+aggregatedTotalByYear <- aggregate(Emissions ~ year,subsetNEI, sum)
+
+#Create plot using base R
+barplot(height=aggregatedTotalByYear$Emissions, 
+        names.arg=aggregatedTotalByYear$year, 
+        xlab="years", 
+        ylab=expression('total PM'[2.5]*' emission'),
+        main=expression('Total PM'[2.5]*' in the Baltimore City, MD emissions at various years'))
+
+```
+
+
+```{r,comment = FALSE, message = FALSE, comment=""}
+#Save PNG image of plot
+png('epaplot2.png')
+barplot(height=aggregatedTotalByYear$Emissions, 
+        names.arg=aggregatedTotalByYear$year, 
+        xlab="years", 
+        ylab=expression('total PM'[2.5]*' emission'),
+        main=expression('Total PM'[2.5]*' in the Baltimore City, MD emissions at various years'))
+dev.off()
+```
+**Question 3: Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999 2008 for Baltimore City? Which have seen increases in emissions from 1999 2008?**
+
+```{r,comment =""}
+# Subet data for Baltimore (24510) 
+subsetNEI  <- NEI[NEI$fips=="24510", ]
+
+
+#Emissions by year
+aggregatedTotalByYearAndType <- aggregate(Emissions ~ year + type, subsetNEI, sum)
+
+#Load package
+library(ggplot2)
+
+#Create plot 
+g <- ggplot(aggregatedTotalByYearAndType, aes(year, Emissions, color = type))
+g <- g + geom_line() +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle('Total Emissions in Baltimore City, MD from 1999 to 2008')+
+    theme(plot.title = element_text(hjust=.5))
+g
+
+#Save plot as png image
+png("epaplot3.png", width=640, height=480)
+g <- ggplot(aggregatedTotalByYearAndType, aes(year, Emissions, color = type))
+g <- g + geom_line() +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle('Total Emissions in Baltimore City, MD from 1999 to 2008')+
+    theme(plot.title = element_text(hjust=.5))
+print(g)
+dev.off()
+
+```
+
+**Question 4: Across the United States, how have emissions from coal combustion-related sources changed from 1999-2008?**
+```{r, comment = ""}
+#Merge the two data sets
+if(!exists("NEISCC")){
+    NEISCC <- merge(NEI, SCC, by = "SCC")
+}
+
+#Subset all NEISCC records with Short.Name (SCC) Coal
+coalMatches <- grepl("coal",NEISCC$Short.Name,ignore.case = TRUE)
+subsetNEISCC <- NEISCC[coalMatches, ]
+
+#Coal emissions total by year
+AggregatedTotalByYear <- aggregate(Emissions ~ year, subsetNEISCC, sum)
+
+#Create plot 
+g <- ggplot(aggregatedTotalByYear, aes(factor(year), Emissions))
+g <- g + geom_bar(stat="identity") +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle('Total Emissions from coal sources from 1999 to 2008')+
+    theme(plot.title = element_text(hjust=.5))        
+g
+
+#Save plot as png image
+png("epaplot4.png", width=640, height=480)
+g <- ggplot(aggregatedTotalByYear, aes(factor(year), Emissions))
+g <- g + geom_bar(stat="identity") +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle('Total Emissions from coal sources from 1999 to 2008')+
+    theme(plot.title = element_text(hjust=.5))
+print(g)
+dev.off()
+```
+
+**Question 5: How have emissions from motor vehicle sources changed from 1999-2008 in Baltimore City?**
+```{r, comment =""}
+#Merge tables
+if(!exists("NEISCC")){
+    merge(NEI, SCC, by ="SCC")
+}
+
+library(ggplot2)
+
+#Subset by Baltimore and motor vehicle emissions
+subsetNEI <- NEI[NEI$fips=="24510" & NEI$type=="ON-ROAD",  ]
+AggregatedTotalByYear <- aggregate(Emissions ~ year, NEISCC, sum)
+
+#Create plot
+g <- ggplot(aggregatedTotalByYear, aes(factor(year), Emissions))
+g <- g + geom_bar(stat="identity") +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle('Total Emissions from motor vehicle in Baltimore City, MD from 1999 to 2008')
+g
+
+#Create plot and save as png image
+png("epaplot5.png", width=840, height=480)
+g <- ggplot(aggregatedTotalByYear, aes(factor(year), Emissions))
+g <- g + geom_bar(stat="identity") +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle('Total Emissions from motor vehicles in Baltimore City, MD from 1999 to 2008')
+print(g)
+dev.off()
+
+```
+
+**Question 6: Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California (fips == "06037"). Which city has seen greater changes over time in motor vehicle emissions?**
+
+```{r,comment=""}
+
+## This first line will likely take a few seconds. Be patient!
+if(!exists("NEI")){
+    NEI <- readRDS("./data/summarySCC_PM25.rds")
+}
+if(!exists("SCC")){
+    SCC <- readRDS("./data/Source_Classification_Code.rds")
+}
+# merge the two data sets 
+if(!exists("NEISCC")){
+    NEISCC <- merge(NEI, SCC, by="SCC")
+}
+
+library(ggplot2)
+
+#Subset data
+subsetNEI <- NEI[(NEI$fips=="24510"|NEI$fips=="06037") & NEI$type=="ON-ROAD",  ]
+
+#Emissions by year
+aggregatedTotalByYearAndFips <- aggregate(Emissions ~ year + fips, subsetNEI, sum)
+aggregatedTotalByYearAndFips$fips[aggregatedTotalByYearAndFips$fips=="24510"] <- "Baltimore, MD"
+aggregatedTotalByYearAndFips$fips[aggregatedTotalByYearAndFips$fips=="06037"] <- "Los Angeles, CA"
+
+#Create plot
+g <- ggplot(aggregatedTotalByYearAndFips, aes(factor(year), Emissions))
+g <- g + facet_grid(. ~ fips)
+g <- g + geom_bar(stat="identity")  +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle(expression(atop('Total Emissions from motor vehicles 1999-2008', atop('Baltimore City, MD vs Los Angeles, CA'),"")))+
+    theme(plot.title = element_text(hjust=.5))
+g
+
+#Save plot as png image
+png("epaplot6.png", width=1040, height=480)
+g <- ggplot(aggregatedTotalByYearAndFips, aes(factor(year), Emissions))
+g <- g + facet_grid(. ~ fips)
+g <- g + geom_bar(stat="identity")  +
+    xlab("year") +
+    ylab(expression('Total PM'[2.5]*" Emissions")) +
+    ggtitle(expression(atop('Total Emissions from motor vehicles 1999-2008', atop('Baltimore City, MD vs Los Angeles, CA'),"")))+
+    theme(plot.title = element_text(hjust=.5))
+print(g)
+dev.off()
+```
+
+
+
+

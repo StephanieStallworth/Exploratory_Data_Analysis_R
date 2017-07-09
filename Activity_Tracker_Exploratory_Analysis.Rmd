@@ -1,0 +1,132 @@
+---
+title: "Activity Tracker Exploratory Analysis"
+author: "Stephanie Stallworth"
+date: "April 14, 2017"
+output: 
+  html_document: 
+    keep_md: true
+---
+
+```{r setup, include=FALSE, comment = ""}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##**Data Processing**
+```{r,comment=""}
+# Unzip and read file
+unzip("activity.zip")
+activity<-read.csv("activity.csv")
+
+# Format dates
+activity$day <- weekdays(as.Date(activity$date))
+activity$DateTime<-as.POSIXct(activity$date, format = "%Y-%m-%d")
+
+# Omit NA
+tActivity <- activity[!is.na(activity$steps), ]
+```
+
+
+##**Analysis**
+
+###**What is mean total number of steps taken per day?**
+
+```{r,comment =""}
+# Calculate total number of steps taken per day
+sumTable <-  aggregate(steps ~ date, tActivity,sum)
+colnames(sumTable) <- c("Date","Steps")
+sumTable
+
+# Create histogram of total number of steps taken per day
+hist(sumTable$Steps, breaks = 5, xlab = "Steps", main = "Total Steps Per Day", col = "blue")
+
+# Calculate and report the mean and median of the total steps taken per day
+as.integer(mean(sumTable$Steps))
+
+# Calculate median of the total steps taken per day
+as.integer(median(sumTable$Steps))
+```
+###**What is the average daily activity pattern?**
+
+```{r}
+# Time series plot of the 5-minute intervals and the average number of steps taken, averaged across all days
+
+interval <- aggregate(steps ~ interval, tActivity, mean)
+plot(interval$interval, 
+     interval$steps, 
+     type = "l",
+     xlab = "Interval",
+     ylab = "# of Steps",
+     main = "Average Number of Steps Per Day By Interval")
+```
+
+###**When missing value are imputed, do mean values differ from prior calculations? What is the impact of imputing missing data on the estimates of the total daily number of steps?**
+
+There are a number of days/intervals with missing values (coded as `NA`). The presence of missing days may introduce bias into summary calculations so a strategy was devised to address this missing data.
+
+```{r, comment =""}
+# Calculate total number of missing values in the dataset 
+sum(!complete.cases(activity))
+
+# Average number of steps per day and interval
+avgTable <- aggregate(steps ~ interval + day, tActivity, mean)
+
+# Create dataset with NAs substituted
+naData <- activity[is.na(activity$steps), ]
+
+# Merge NA with average week day interval table to impute
+newData <- merge(naData, avgTable, by = c("interval","day"))
+
+```
+
+
+A new data set that is equal to the original data set was then created the missing data imputed.
+```{r,comment=""}
+# Fix original data set with missing values imputed
+
+newData2 <- newData[,c(6,4,1,2,5)]
+colnames(newData2) <- c("steps","date", "interval","day","DateTime")
+
+# Merge NA averages and non NA data together
+mergeData <- rbind(tActivity,newData2)
+
+# Create sum of steps per date to compare with step 1
+sumTable2 <- aggregate(mergeData$steps ~ mergeData$date, FUN=sum)
+colnames(sumTable2)<- c("Date", "Steps")
+```
+
+Summary calculations were then performed on the new data set with no missing values.
+
+```{r, comment=""}
+# Mean of number of steps with NA imputed
+as.integer(mean(sumTable2$Steps))
+
+# Median of Steps with NA data imputed
+as.integer(median(sumTable2$Steps))
+
+
+# Histogram of the total number of steps taken each day with NA data imputed
+hist(sumTable2$Steps, breaks = 10, col = "blue", xlab = "Daily Steps", main = "Total Steps In A Day")
+hist(sumTable$Steps, breaks = 10, col = "grey", xlab = "Daily Steps", main = "Total Steps In A Day", add=T) 
+legend("topleft", c("Imputed", "NA"), fill = c("blue","grey"))
+```
+
+###**Are there differences in activity patterns between weekdays and weekends?**
+
+```{r}
+# Create new factor variable with two levels indicating whether a given date is a weekday or weekend day.
+
+mergeData$DayCategory <- ifelse(mergeData$day %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+
+# Create panel plot containing a time series plot of the 5-minute intervals and the average number of steps taken, averaged across all weekday days or weekend days.
+
+library(ggplot2)
+
+intervalTable2 <- aggregate(steps ~ interval + DayCategory,mergeData,mean)
+ggplot(intervalTable2,aes(x = interval, y =steps))+geom_line() + facet_grid(DayCategory~.)+
+    xlab("5 minute intervals")+
+    ylab("Number of Steps")
+
+```
+
+
+
